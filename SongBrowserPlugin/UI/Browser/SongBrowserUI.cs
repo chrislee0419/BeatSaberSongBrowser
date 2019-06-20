@@ -603,11 +603,11 @@ namespace SongBrowser.UI
         public IEnumerator UpdateLevelPackSelectionEndOfFrame()
         {
             yield return new WaitForEndOfFrame();
-
+            Logger.Trace("UpdateLevelPackSelectionEndOfFrame()");
             try
             {
                 bool didUpdateLevelPack = this.UpdateLevelPackSelection();
-                if (!didUpdateLevelPack)
+                if (didUpdateLevelPack)
                 {
                     _model.ProcessSongList(GetCurrentSelectedLevelPack());
                 }
@@ -651,29 +651,34 @@ namespace SongBrowser.UI
 
             try
             {
-                // reset filter mode always here
+                // default to false so reselecting same level pack is a way to jump to start
+                bool didScrollToLevel = false;
                 if (this._model.Settings.currentLevelPackId != arg2.packID)
                 {
+                    // reset filter mode always here
                     this._model.Settings.filterMode = SongFilterMode.None;
+
+                    // save level pack
+                    this._model.Settings.currentLevelPackId = arg2.packID;
+                    this._model.Settings.Save();
+
+                    this._model.ProcessSongList(arg2);
+
+                    // trickery to handle Downloader playlist level packs
+                    // We need to avoid scrolling to a level and then select the header
+                    if (arg2.packID.Contains("Playlist_"))
+                    {
+                        didScrollToLevel = false;
+                    }
+                    else
+                    {
+                        didScrollToLevel = true;
+                    }
+
+                    RefreshSongUI(didScrollToLevel);
                 }
-
-                // save level pack
-                this._model.Settings.currentLevelPackId = arg2.packID;
-                this._model.Settings.Save();
-
-                this._model.ProcessSongList(arg2);
-
-                // trickery to handle Downloader playlist level packs
-                // We need to avoid scrolling to a level and then select the header
-                bool scrollToLevel = true;
-                if (arg2.packID.Contains("Playlist_"))
-                {
-                    scrollToLevel = false;
-                }
-
-                RefreshSongUI(scrollToLevel);
                 
-                if (!scrollToLevel)
+                if (!didScrollToLevel)
                 {
                     ScrollToLevelByRow(0);
                 }
@@ -1574,10 +1579,6 @@ namespace SongBrowser.UI
                     _levelPacksTableView.didSelectPackEvent += _levelPacksTableView_didSelectPackEvent;
                     
                     return true;
-                }
-                else
-                {
-                   // this._model.SetCurrentLevelPack(currentSelected);
                 }
             }
 
